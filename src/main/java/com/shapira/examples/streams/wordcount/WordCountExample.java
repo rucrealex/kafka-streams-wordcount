@@ -1,14 +1,13 @@
 package com.shapira.examples.streams.wordcount;
 
 
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KStreamBuilder;
 
 import java.util.Arrays;
 import java.util.Properties;
@@ -21,8 +20,8 @@ public class WordCountExample {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "wordcount");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.put(StreamsConfig.KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
-        props.put(StreamsConfig.VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
 
         // setting offset reset to earliest so that we can re-run the demo code with the same pre-loaded data
         // Note: To re-run the demo, you need to use the offset reset tool:
@@ -34,7 +33,7 @@ public class WordCountExample {
         // don't use in large production apps - this increases network load
         // props.put(CommonClientConfigs.METADATA_MAX_AGE_CONFIG, 500);
 
-        KStreamBuilder builder = new KStreamBuilder();
+        StreamsBuilder builder = new StreamsBuilder();
 
         KStream<String, String> source = builder.stream("wordcount-input");
 
@@ -44,10 +43,12 @@ public class WordCountExample {
                 .map((key, value) -> new KeyValue<Object, Object>(value, value))
                 .filter((key, value) -> (!value.equals("the")))
                 .groupByKey()
-                .count("CountStore").mapValues(value->Long.toString(value)).toStream();
+                .count()
+                .mapValues(value->Long.toString(value)).toStream();
         counts.to("wordcount-output");
+        System.out.println(counts);
 
-        KafkaStreams streams = new KafkaStreams(builder, props);
+        KafkaStreams streams = new KafkaStreams(builder.build(), props);
 
         // This is for reset to work. Don't use in production - it causes the app to re-load the state from Kafka on every start
         streams.cleanUp();
